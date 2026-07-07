@@ -397,9 +397,31 @@
     return { trimEnd, af, speedFactor };
   }
 
-  async function toBlobURL(url, mimeType) {
+  async function toBlobURL(url, mimeType, label, estimatedSize) {
     const resp = await fetch(url);
-    const buf = await resp.arrayBuffer();
+    let total = parseInt(resp.headers.get('content-length') || '0', 10);
+    if (!total) total = estimatedSize || 0;
+    const reader = resp.body.getReader();
+    let received = 0;
+    const chunks = [];
+    let lastPct = -1;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (total) {
+        const pct = Math.min(99, Math.floor((received / total) * 100));
+        if (pct !== lastPct && pct % 10 === 0) {
+          log(`${label}: ${pct}% (${(received/1024/1024).toFixed(1)}MB)`);
+          lastPct = pct;
+        }
+      }
+    }
+    log(`${label}: 100% ✅ (${(received/1024/1024).toFixed(1)}MB)`, "ok");
+    const buf = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.length; }
     return URL.createObjectURL(new Blob([buf], { type: mimeType }));
   }
 
@@ -415,9 +437,9 @@
     const coreBase = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
 
     const [classWorkerURL, coreURL, wasmURL] = await Promise.all([
-      toBlobURL(`${ffBase}/worker.min.js`, "text/javascript"),
-      toBlobURL(`${coreBase}/ffmpeg-core.js`, "text/javascript"),
-      toBlobURL(`${coreBase}/ffmpeg-core.wasm`, "application/wasm"),
+      toBlobURL(`${ffBase}/worker.min.js`, "text/javascript", "ملف التحكم", 15 * 1024),
+      toBlobURL(`${coreBase}/ffmpeg-core.js`, "text/javascript", "محرك المعالجة", 120 * 1024),
+      toBlobURL(`${coreBase}/ffmpeg-core.wasm`, "application/wasm", "الملف الأساسي (الأكبر)", 31 * 1024 * 1024),
     ]);
 
     await ffmpeg.load({ coreURL, wasmURL, classWorkerURL });
