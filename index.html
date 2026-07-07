@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>محرر البكرة | تعديل فيديو بالأوامر النصية</title>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/coi-serviceworker/0.1.7/coi-serviceworker.min.js"></script>
+<script src="coi-serviceworker.js"></script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;800&family=IBM+Plex+Mono:wght@400;600&display=swap');
@@ -197,7 +197,7 @@
   .unlock-btn:hover{ background: var(--brass-light); }
 
   .download-btn{
-    display: none; /* مخفي افتراضياً ويظهر عند اكتمال الفيديو */
+    display: none; /* مخفي وهيظهر أول ما الفيديو يخلص معالجة */
     text-align: center;
     margin-top: 16px;
     background: var(--ok);
@@ -297,7 +297,7 @@
   const resultVideo = document.getElementById('resultVideo');
   const lockPanel = document.getElementById('lockPanel');
   const unlockBtn = document.getElementById('unlockBtn');
-  const downloadBtn = document.getElementById('downloadBtn'); // استدعاء الزر الجديد
+  const downloadBtn = document.getElementById('downloadBtn');
 
   dropZone.addEventListener('click', () => fileInput.click());
 
@@ -447,7 +447,7 @@
 
     const [classWorkerURL, coreURL, wasmURL] = await Promise.all([
       toBlobURL(`${ffBase}/worker.min.js`, "text/javascript", "ملف التحكم", 15 * 1024),
-      toBlobURL(`${coreBase}/ffmpeg-core.js`, "text/javascript", "محرك المعالجة", 120 * 1024),
+      toBlobURL(`${coreBase}/ffmpeg-core.js`, "text/javascript", "محرك المعايرة", 120 * 1024),
       toBlobURL(`${coreBase}/ffmpeg-core.wasm`, "application/wasm", "الملف الأساسي (الأكبر)", 31 * 1024 * 1024),
     ]);
 
@@ -464,7 +464,7 @@
     runBtn.textContent = "بيتم التنفيذ...";
     logBox.innerHTML = "";
     resultBox.classList.remove('show');
-    downloadBtn.style.display = "none"; // إخفاء زر التحميل عند البدء من جديد
+    downloadBtn.style.display = "none"; // إخفاء زر التحميل عند بدء معالجة جديدة
 
     try {
       log("جاري تحليل الأمر...");
@@ -496,7 +496,7 @@
 
       resultVideo.src = url;
       
-      // إرسال رابط الفيديو المعدل لزر التحميل وإظهاره للمستخدم مباشرة
+      // ربط رابط الفيديو الجديد بزر التحميل وإظهاره مباشرة
       downloadBtn.href = url;
       downloadBtn.style.display = "inline-block";
 
