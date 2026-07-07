@@ -323,7 +323,6 @@
     logBox.scrollTop = logBox.scrollHeight;
   }
 
-  // محلل أوامر محلي بالكامل (بدون إنترنت أو مفتاح API) — يفهم عربي وإنجليزي
   function parseCommand(text, duration) {
     const operations = [];
     const t = text.trim();
@@ -398,17 +397,30 @@
     return { trimEnd, af, speedFactor };
   }
 
+  async function toBlobURL(url, mimeType) {
+    const resp = await fetch(url);
+    const buf = await resp.arrayBuffer();
+    return URL.createObjectURL(new Blob([buf], { type: mimeType }));
+  }
+
   async function loadFFmpeg() {
     if (ffmpeg) return ffmpeg;
     log("جاري تحميل محرك المعالجة (أول مرة بس)...");
+
     const { FFmpeg } = await import("https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.15/esm/index.min.js");
     ffmpeg = new FFmpeg();
     ffmpeg.on("log", ({ message }) => { /* console.log(message) */ });
-    await ffmpeg.load({
-      coreURL: "https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.15/ffmpeg-core.js",
-    }).catch(async () => {
-      await ffmpeg.load();
-    });
+
+    const ffBase = "https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.15/esm";
+    const coreBase = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+
+    const [classWorkerURL, coreURL, wasmURL] = await Promise.all([
+      toBlobURL(`${ffBase}/worker.min.js`, "text/javascript"),
+      toBlobURL(`${coreBase}/ffmpeg-core.js`, "text/javascript"),
+      toBlobURL(`${coreBase}/ffmpeg-core.wasm`, "application/wasm"),
+    ]);
+
+    await ffmpeg.load({ coreURL, wasmURL, classWorkerURL });
     log("محرك المعالجة جاهز ✅", "ok");
     return ffmpeg;
   }
@@ -432,8 +444,7 @@
       const ff = await loadFFmpeg();
 
       log("جاري تحميل الفيديو للمعالجة...");
-      const { fetchFile } = await import("https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-util/0.12.2/index.min.js").catch(() => ({fetchFile: async(f) => new Uint8Array(await f.arrayBuffer())}));
-      const inputData = fetchFile ? await fetchFile(fileData) : new Uint8Array(await fileData.arrayBuffer());
+      const inputData = new Uint8Array(await fileData.arrayBuffer());
       await ff.writeFile("input.mp4", inputData);
 
       const args = ["-i", "input.mp4", "-t", String(trimEnd)];
